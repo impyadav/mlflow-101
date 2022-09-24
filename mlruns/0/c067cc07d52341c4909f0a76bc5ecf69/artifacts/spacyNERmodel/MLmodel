@@ -1,0 +1,10 @@
+artifact_path: spacyNERmodel
+flavors:
+  spacy:
+    code: null
+    data: model.spacy
+    spacy_version: 2.3.0
+mlflow_version: 1.29.0
+model_uuid: 9bdae6973d8d4939b32fe30b10ce9bdd
+run_id: c067cc07d52341c4909f0a76bc5ecf69
+utc_time_created: '2022-09-24 18:38:13.666670'

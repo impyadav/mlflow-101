@@ -1,0 +1,15 @@
+artifact_uri: ./mlruns/0/c067cc07d52341c4909f0a76bc5ecf69/artifacts
+end_time: 1664044693840
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+name: ''
+run_id: c067cc07d52341c4909f0a76bc5ecf69
+run_uuid: c067cc07d52341c4909f0a76bc5ecf69
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1664044687213
+status: 3
+tags: []
+user_id: impyadav

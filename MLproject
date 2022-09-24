@@ -1,0 +1,12 @@
+name: mlflow-101
+
+conda_env: envs/config/conda_env.yaml
+
+entry_points:
+    main:
+        parameters:
+                    train_file: {type: path, default: data/train_data.json}
+                    output_file: {type: path, default: model}
+                    iterations: {type: int, default: 10}
+
+        command: "python SPACY_TRAINING_mlflow.py --json_train_file {train_file} --output_model_name {output_file}  --iteration {iterations}"
