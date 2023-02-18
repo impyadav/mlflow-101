@@ -3,3 +3,6 @@ On the Leeway of MLOPs, you have plenty of open-source tools available to build 
 
 
 Here, We're running an mlflow experiment in which we're building a NER model which is being tracked by MLflow on azure cloud.
+
+
+To understand the process, I've written up the blog, do check out: https://impyadav.medium.com/mlops-deploy-nlp-model-straightforward-using-mlflow-azure-2df9293d5378
