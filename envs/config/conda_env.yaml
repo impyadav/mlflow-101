@@ -1,6 +1,12 @@
 name: mlflow101_conda
 
 dependencies:
-  - mlflow
-  - spacy==2.3.0
-  - scikit-learn
+  - python=3.6
+  - pip
+  - pip:
+      - spacy==2.3.2
+      - scikit-learn
+      - mlflow
+      - azureml-sdk
+      - azureml-mlflow
+      - pandas
