@@ -9,82 +9,39 @@ from typing import List
 
 import spacy
 import numpy as np
+import pandas as pd
 from wasabi import Printer
 from spacy.gold import GoldParse
 
 import mlflow
+import mlflow.pyfunc as mlflow_pyfunc
 from mlflow.models.signature import ModelSignature, infer_signature
-from mlflow.types.schema import Schema
+from mlflow.types.schema import Schema, ColSpec
 
+
+import mlflow.azureml
+from azureml.core import Workspace
 
 warnings.filterwarnings("ignore")
 msg = Printer()
 
+# Azure setup
 
-def trim_entity_spans(data: List) -> List:
-    invalid_span_tokens = re.compile(r"\s")
-    cleaned_data = []
-    for jsondata in data:
-        entities = jsondata["entities"]
-        text = jsondata["content"].lower()
-        valid_entities = []
-        try:
-            aa = 0
-            for ent in entities:
-                lbltxt = ent['labelText'].lower()
-                lblInd = text.find(lbltxt, aa)
-                valid_start = lblInd
-                valid_end = lblInd + len(lbltxt)
-                aa = valid_end
-                while valid_start < len(text) and invalid_span_tokens.match(
-                        text[valid_start]
-                ):
-                    valid_start += 1
-                while valid_end > 1 and invalid_span_tokens.match(text[valid_end - 1]):
-                    valid_end -= 1
-
-                if ent['labelText'].lower() in text[valid_start:valid_end]:
-                    valid_entities.append([valid_start, valid_end, ent['labelName'].lower()])
-            cleaned_data.append([text.lower(), {"entities": valid_entities}])
-        except:
-            msg.good("Warning: Entity not found ".format(text))
-
-    return cleaned_data
+ws = Workspace.from_config()
+mlflow.set_tracking_uri(ws.get_mlflow_tracking_uri())
+experiment_name = 'ner_spacy_mlflow_azure_demo'
+mlflow.set_experiment(experiment_name)
 
 
-def get_trained_spacy_model(data, iterations, model=None):
-    TRAIN_DATA = data
-    nlp = spacy.blank('en')  # create blank Language class
-    # create the built-in pipeline components and add them to the pipeline
-    # nlp.create_pipe works for built-ins that are registered with spaCy
-    if 'ner' not in nlp.pipe_names:
-        ner = nlp.create_pipe('ner')
-        nlp.add_pipe(ner, last=True)
+class spacyNERModel(mlflow.pyfunc.PythonModel):
 
-    # add labels
-    for item in TRAIN_DATA:
-        for ent in item['entities']:
-            ner.add_label(ent[2])
+    def __init__(self, nlpModel):
+        self.nlpModel = nlpModel
 
-    # get names of other pipes to disable them during training
-    other_pipes = [pipe for pipe in nlp.pipe_names if pipe != 'ner']
-    with nlp.disable_pipes(*other_pipes):  # only train NER
-        optimizer = nlp.begin_training()
-        for itn in range(iterations):
-            print("Statring iteration " + str(itn))
-            random.shuffle(TRAIN_DATA)
-            losses = {}
-            for item in TRAIN_DATA:
-                text = nlp.make_doc(item['content'])  # <--- add this
-                gold = GoldParse(text, entities=item['entities'])
-                nlp.update(
-                    [text],  # batch of texts
-                    [gold],  # batch of annotations
-                    drop=0.2,  # dropout - make it harder to memorise data
-                    sgd=optimizer,  # callable to update weights
-                    losses=losses)
-            print(losses)
-    return nlp
+    def predict(self, context, model_input):
+        # df = pd.read_json(model_input)
+        res = model_input['text'].apply(lambda x: str(list(self.nlpModel(x).ents)))
+        return res.values
 
 
 if __name__ == '__main__':
@@ -101,6 +58,10 @@ if __name__ == '__main__':
     train_file = args.json_train_file
     model_name = args.output_model_name
     iteration = args.iteration
+
+    # train_file = './data/train_data.json'
+    # model_name = 'spacyNERmodel'
+    # iteration = 10
 
     with mlflow.start_run():
 
@@ -144,9 +105,27 @@ if __name__ == '__main__':
 
             mlflow.log_metric('loss', losses['ner'])
 
-        nlp.to_disk('spacyNERmodel')
+        input_schema = Schema([
 
-        mlflow.spacy.log_model(nlp, artifact_path='spacyNERmodel', conda_env='envs/config/conda_env.yaml')
+            ColSpec("string", 'text')
+        ])
 
-        # spacy_nlp = get_trained_spacy_model(TrainData, iteration)
-        # spacy_nlp.to_disk('/model' + model_name)
+        output_schema = Schema([
+            ColSpec("string", 'predictions')
+        ])
+
+        nlp_pyfunc_model = spacyNERModel(nlp)
+
+        mlflow_pyfunc.log_model(python_model=nlp_pyfunc_model, artifact_path='model', conda_env='envs/config'
+                                                                                                '/conda_env.yaml',
+                                signature=
+                                ModelSignature(inputs=input_schema, outputs=output_schema))
+
+        # Model registry
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path="model")
+
+        print(model_uri)
+
+        mlflow.register_model(model_uri, 'spacyNERmodel')
